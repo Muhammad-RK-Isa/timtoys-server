@@ -33,7 +33,7 @@ const run = async () => {
 run().catch( console.dir );
 
 app.get( '/', ( req, res ) => {
-    res.send( 'Hello from User Managerment Server!' );
+    res.send( 'Hello from TimToys Server!' );
 } );
 
 
