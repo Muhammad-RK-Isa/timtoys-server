@@ -21,30 +21,39 @@ const client = new MongoClient( uri, {
 const run = async () => {
     try {
         await client.connect();
-        
+
         const database = client.db( 'timToys' );
         const productsCollection = database.collection( 'products' );
 
         console.log( 'hello' );
         // GET API
-        // app.get( '/products', async ( req, res ) => {
-        //     const cursor = productsCollection.find( {} );
-        //     const products = await cursor.toArray();
-        //     res.send( products );
-        // } );
+        app.get( '/products', async ( req, res ) => {
+            const cursor = productsCollection.find( {} );
+            const products = await cursor.toArray();
+            res.send( products );
+        } );
 
-        // app.get( '/products/random', async ( req, res ) => {
-        //     const quantity = parseInt( req.query.quantity );
+        app.get( '/products/random', async ( req, res ) => {
+            const quantity = parseInt( req.query.quantity );
+            const category = req.query.category;
 
-        //     const cursor = productsCollection.aggregate( [
-        //         { $match: { isStock: true } },
-        //         { $sample: { size: quantity } },
-        //         { $project: { _id: 1, title: 1, thumbnailImage: 1 } }
-        //     ] );
-        //     const products = await cursor.toArray();
-        //     console.log( products );
-        //     res.send( products );
-        // } );
+            let pipeline = [];
+
+            if ( category ) {
+                pipeline.push( { $match: { inStock: true, category: category } } );
+            } else {
+                pipeline.push( { $match: { inStock: true } } );
+            }
+
+            pipeline.push(
+                { $sample: { size: quantity } },
+                { $project: { _id: 1, title: 1, thumbnailImage: 1, category: 1 } }
+            );
+
+            const cursor = productsCollection.aggregate( pipeline );
+            const products = await cursor.toArray();
+            res.send( products );
+        } );
 
         // Ping your deployment
         await client.db( 'admin' ).command( { ping: 1 } );
