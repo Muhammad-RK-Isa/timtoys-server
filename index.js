@@ -26,13 +26,15 @@ const run = async () => {
         const productsCollection = database.collection( 'products' );
 
         console.log( 'hello' );
-        // GET API
-        app.get( '/products', async ( req, res ) => {
-            const cursor = productsCollection.find( {} );
-            const products = await cursor.toArray();
-            res.send( products );
-        } );
 
+        // ? GET All Products
+        // app.get( '/products', async ( req, res ) => {
+        //     const cursor = productsCollection.find( {} );
+        //     const products = await cursor.toArray();
+        //     res.send( products );
+        // } );
+
+        //  ?GET random products with query: quantity and category_name(optional)
         app.get( '/products/random', async ( req, res ) => {
             const quantity = parseInt( req.query.quantity );
             const category = req.query.category;
@@ -52,7 +54,35 @@ const run = async () => {
 
             const cursor = productsCollection.aggregate( pipeline );
             const products = await cursor.toArray();
-            res.send( products );
+            res.json( products );
+        } );
+
+        // ? GET SubCategories by Category
+        app.get( '/sub_categories', async ( req, res ) => {
+            const category = req.query.category;
+            const pipeline = [
+                { $match: { category: category } },
+                { $group: { _id: null, subCategories: { $addToSet: "$subCategory" } } },
+                { $project: { _id: 0, subCategories: 1 } }
+            ];
+
+            try {
+                const cursor = productsCollection.aggregate( pipeline );
+                const result = await cursor.toArray();
+                const subCategories = result.length > 0 ? result[ 0 ].subCategories : [];
+                res.json( subCategories );
+            } catch ( err ) {
+                console.error( 'Failed to retrieve subcategories:', err );
+                res.status( 500 ).json( { error: 'Failed to retrieve subcategories' } );
+            }
+        } );
+
+        // ? GET Products by Category
+        app.get( '/products/filter_by_category', async ( req, res ) => {
+            const category = req.query.category;
+            const cursor = productsCollection.find( { category: category } );
+            const products = await cursor.toArray();
+            res.json( products );
         } );
 
         // Ping your deployment
@@ -71,6 +101,6 @@ app.get( '/', ( req, res ) => {
 } );
 
 
-app.listen( port, '192.168.0.179', () => {
+app.listen( port, '0.0.0.0', () => {
     console.log( `TimToys Server is running on port ${ port }` );
 } );
