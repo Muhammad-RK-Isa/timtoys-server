@@ -7,7 +7,14 @@ const app = express();
 const port = process.env.PORT || 5000;
 dotenv.config();
 app.use( express.json() );
-app.use( cors() );
+
+const corsConfig = {
+    origin: '',
+    credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+}
+app.use( cors( corsConfig ) );
+app.options( '', cors( corsConfig ) );
 
 const uri = `mongodb+srv://${ process.env.MDB_USER }:${ process.env.MDB_PASSWORD }@cluster0.9wh3o6k.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient( uri, {
@@ -19,20 +26,14 @@ const client = new MongoClient( uri, {
 } );
 
 const run = async () => {
+    console.log( 'trying to connect to database' );
     try {
-        await client.connect();
+        client.connect();
 
         const database = client.db( 'timToys' );
         const productsCollection = database.collection( 'products' );
 
-        console.log( 'hello' );
-
         // ? GET All Products
-        // app.get( '/products', async ( req, res ) => {
-        //     const cursor = productsCollection.find( {} );
-        //     const products = await cursor.toArray();
-        //     res.send( products );
-        // } );
 
         //  ?GET random products with query: quantity and category_name(optional)
         app.get( '/products/random', async ( req, res ) => {
@@ -101,6 +102,6 @@ app.get( '/', ( req, res ) => {
 } );
 
 
-app.listen( port, '0.0.0.0', () => {
+app.listen( port, () => {
     console.log( `TimToys Server is running on port ${ port }` );
 } );
