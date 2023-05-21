@@ -1,20 +1,22 @@
 import express from "express";
 import * as dotenv from 'dotenv';
 import cors from 'cors';
-import { MongoClient, ServerApiVersion } from "mongodb";
+import { MongoClient, ObjectId, ServerApiVersion } from "mongodb";
+import * as objectId from 'mongodb';
 
 const app = express();
 const port = process.env.PORT || 5000;
 dotenv.config();
 app.use( express.json() );
+app.use( cors() );
 
-const corsConfig = {
-    origin: '',
-    credentials: true,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-}
-app.use( cors( corsConfig ) );
-app.options( '', cors( corsConfig ) );
+// const corsConfig = {
+//     origin: '',
+//     credentials: true,
+//     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+// };
+// app.use( cors( corsConfig ) );
+// app.options( '', cors( corsConfig ) );
 
 const uri = `mongodb+srv://${ process.env.MDB_USER }:${ process.env.MDB_PASSWORD }@cluster0.9wh3o6k.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient( uri, {
@@ -26,14 +28,19 @@ const client = new MongoClient( uri, {
 } );
 
 const run = async () => {
-    console.log( 'trying to connect to database' );
     try {
         client.connect();
 
         const database = client.db( 'timToys' );
         const productsCollection = database.collection( 'products' );
 
-        // ? GET All Products
+        // ? GET Single Product's Data
+        app.get( '/product/:_id', async ( req, res ) => {
+            const { _id } = req.params;
+            const cursor = productsCollection.findOne( { _id: new ObjectId( _id ) } );
+            const product = await cursor;
+            res.json( product );
+        } )
 
         //  ?GET random products with query: quantity and category_name(optional)
         app.get( '/products/random', async ( req, res ) => {
@@ -58,12 +65,35 @@ const run = async () => {
             res.json( products );
         } );
 
+        // ? GET all the uniques Categories
+        app.get( '/categories', async ( req, res ) => {
+            try {
+                const pipeline = [
+                    { $group: { _id: '$category' } },
+                    { $sort: { _id: 1 } }, // Sort the categories in ascending order by _id
+                    { $project: { _id: 1, category: '$_id' } }
+                ];
+
+                const categories = await productsCollection.aggregate( pipeline ).toArray();
+                res.json( categories );
+            } catch ( err ) {
+                console.error( 'Failed to retrieve categories:', err );
+                // res.status(500).json({ error: 'Failed to retrieve categories' });
+            }
+        } );
+
+
+
         // ? GET SubCategories by Category
         app.get( '/sub_categories', async ( req, res ) => {
             const category = req.query.category;
             const pipeline = [
                 { $match: { category: category } },
                 { $group: { _id: null, subCategories: { $addToSet: "$subCategory" } } },
+                { $project: { _id: 0, subCategories: 1 } },
+                { $unwind: "$subCategories" }, // Unwind the subCategories array
+                { $sort: { subCategories: 1 } }, // Sort the subCategories in ascending order
+                { $group: { _id: null, subCategories: { $push: "$subCategories" } } }, // Group the subCategories back into an array
                 { $project: { _id: 0, subCategories: 1 } }
             ];
 
@@ -77,6 +107,7 @@ const run = async () => {
                 res.status( 500 ).json( { error: 'Failed to retrieve subcategories' } );
             }
         } );
+
 
         // ? GET Products by Category
         app.get( '/products/filter_by_category', async ( req, res ) => {
@@ -102,6 +133,6 @@ app.get( '/', ( req, res ) => {
 } );
 
 
-app.listen( port, () => {
+app.listen( port, "0.0.0.0", () => {
     console.log( `TimToys Server is running on port ${ port }` );
 } );
